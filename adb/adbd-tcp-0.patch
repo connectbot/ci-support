@@ -1,0 +1,101 @@
+diff --git a/adb/adb.c b/adb/adb.c
+index 9e2c4b0bb..45e73cfac 100644
+--- a/adb/adb.c
++++ b/adb/adb.c
+@@ -622,14 +622,25 @@ static void listener_disconnect(void*  _l, atransport*  t)
+     free_listener(l);
+ }
+ 
+-int local_name_to_fd(const char *name)
++int local_name_to_fd(const char *name, int *resolved_tcp_port)
+ {
+     int port;
+ 
+     if(!strncmp("tcp:", name, 4)){
+-        int  ret;
++        int ret;
++
+         port = atoi(name + 4);
+         ret = socket_loopback_server(port, SOCK_STREAM);
++
++        if (resolved_tcp_port != NULL) {
++            struct sockaddr_in sin;
++            socklen_t len = sizeof(sin);
++
++            if (getsockname(ret, (struct sockaddr *)&sin, &len) == 0) {
++                *resolved_tcp_port = ntohs(sin.sin_port);
++            }
++        }
++
+         return ret;
+     }
+ #ifndef HAVE_WIN32_IPC  /* no Unix-domain sockets on Win32 */
+@@ -733,7 +744,8 @@ typedef enum {
+ static install_status_t install_listener(const char *local_name,
+                                          const char *connect_to,
+                                          atransport* transport,
+-                                         int no_rebind)
++                                         int no_rebind,
++                                         int* resolved_tcp_port)
+ {
+     alistener *l;
+ 
+@@ -775,7 +787,7 @@ static install_status_t install_listener(const char *local_name,
+     if((l->connect_to = strdup(connect_to)) == 0) goto nomem;
+ 
+ 
+-    l->fd = local_name_to_fd(local_name);
++    l->fd = local_name_to_fd(local_name, resolved_tcp_port);
+     if(l->fd < 0) {
+         free((void*) l->local_name);
+         free((void*) l->connect_to);
+@@ -1112,7 +1124,7 @@ int adb_main(int is_daemon, int server_port)
+ 
+     char local_name[30];
+     build_local_name(local_name, sizeof(local_name), server_port);
+-    if(install_listener(local_name, "*smartsocket*", NULL, 0)) {
++    if(install_listener(local_name, "*smartsocket*", NULL, 0, NULL)) {
+         exit(1);
+     }
+ #else
+@@ -1165,7 +1177,7 @@ int adb_main(int is_daemon, int server_port)
+     } else {
+         char local_name[30];
+         build_local_name(local_name, sizeof(local_name), server_port);
+-        if(install_listener(local_name, "*smartsocket*", NULL, 0)) {
++        if(install_listener(local_name, "*smartsocket*", NULL, 0, NULL)) {
+             exit(1);
+         }
+     }
+@@ -1260,6 +1272,7 @@ int handle_forward_request(const char* service, transport_type ttype, char* seri
+ 
+         int createForward = strncmp(service, "kill", 4);
+         int no_rebind = 0;
++        int resolved_tcp_port = 0;
+ 
+         local = strchr(service, ':') + 1;
+ 
+@@ -1298,7 +1311,7 @@ int handle_forward_request(const char* service, transport_type ttype, char* seri
+         }
+ 
+         if (createForward) {
+-            r = install_listener(local, remote, transport, no_rebind);
++            r = install_listener(local, remote, transport, no_rebind, &resolved_tcp_port);
+         } else {
+             r = remove_listener(local, transport);
+         }
+@@ -1307,7 +1320,13 @@ int handle_forward_request(const char* service, transport_type ttype, char* seri
+             /* On the host: 1st OKAY is connect, 2nd OKAY is status */
+             writex(reply_fd, "OKAY", 4);
+ #endif
+-            writex(reply_fd, "OKAY", 4);
++            if (resolved_tcp_port != 0) {
++                char port_str[32];
++                snprintf(port_str, sizeof port_str, "%d", resolved_tcp_port);
++                send_msg_with_okay(reply_fd, port_str, strlen(port_str));
++            } else {
++                writex(reply_fd, "OKAY", 4);
++            }
+             return 1;
+         }
+ 
