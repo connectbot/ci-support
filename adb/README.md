@@ -1,10 +1,12 @@
 This is the adbd built from jb-dev branch with cherry-picked support
-for "adb reverse" as well as a backported patch to make sure port
-selection with "tcp:0" still works.
+for "`adb reverse`" as well as a backported patch to make sure port
+selection with "`tcp:0`" still works.
 
-https://android.googlesource.com/platform/system/core/+log/jb-dev
-The following cherry-picks were made:
+[system/core/adb from jb-dev](
+https://android.googlesource.com/platform/system/core/+log/jb-dev)
+was used with thhe following cherry-picks from master:
 
+```
 pick e109d266c12c5f537d429ca4b892f2719e02c2da
 pick c7993af64baec271a238646bc20aaa846866c4a9
 pick 3608d832425ca3a6d00c4040f3bb979c5aa49899
@@ -18,5 +20,6 @@ pick a5ad539cff9dba92650425b8bec79c071ef5993b
 pick 1c45ee92e2372f3c552744823143fb093fdbda9d
 pick 2264e7cfef6b1236a90a13b1d99abb4aadcb0b93
 pick 252586941934d23073a8d167ec240b221062505f
+```
 
-Additionally the patch adbd-tcp-0.patch was added after the cherry-picks.
+Additionally the patch `adbd-tcp-0.patch` was added after the cherry-picks.
